@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YT Background Play</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+    :root {
+      --red: #FF0000;
+      --dark: #0A0A0A;
+      --card: #161616;
+      --card2: #1E1E1E;
+      --border: #2A2A2A;
+      --text: #F0F0F0;
+      --muted: #777;
+      --green: #00E676;
+      --cyan: #00D4FF;
+      --purple: #7B6FFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 340px;
+      max-height: 580px;
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    body::-webkit-scrollbar { width: 4px; }
+    body::-webkit-scrollbar-track { background: var(--dark); }
+    body::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* ── HEADER ── */
+    .header {
+      position: sticky; top: 0; z-index: 10;
+      padding: 14px 16px 12px;
+      background: linear-gradient(160deg, #1c0000 0%, #0A0A0A 65%);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(255,0,0,0.18) 0%, transparent 65%);
+    }
+    .logo-row { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 32px; height: 32px;
+      background: var(--red);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px rgba(255,0,0,0.4);
+    }
+    .logo svg { width: 16px; height: 16px; fill: #fff; }
+    .title { font-size: 14px; font-weight: 700; color: #fff; }
+    .badge {
+      margin-left: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px; color: var(--red);
+      background: rgba(255,0,0,0.12);
+      border: 1px solid rgba(255,0,0,0.3);
+      padding: 2px 7px; border-radius: 20px;
+    }
+    .tagline { font-size: 10px; color: var(--muted); margin-top: 3px; padding-left: 42px; font-style: italic; }
+
+    .body { padding: 12px 14px; }
+
+    /* ── STATUS ── */
+    .status {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 11px 14px; margin-bottom: 12px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0; transition: all 0.3s;
+    }
+    .dot.on {
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(0,230,118,0.2);
+      animation: glow 2s infinite;
+    }
+    @keyframes glow {
+      0%,100% { box-shadow: 0 0 0 3px rgba(0,230,118,0.2); }
+      50%      { box-shadow: 0 0 0 7px rgba(0,230,118,0.06); }
+    }
+    .s-title { font-size: 13px; font-weight: 600; }
+    .s-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    /* ── SECTION DIVIDER ── */
+    .sec {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--muted); margin-bottom: 8px;
+    }
+
+    /* ══════════════════════════════════════
+       IMAGE PROXY SECTION
+    ══════════════════════════════════════ */
+    .proxy-section {
+      background: linear-gradient(135deg, rgba(0,212,255,0.04) 0%, rgba(123,111,255,0.04) 100%);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 14px;
+      padding: 13px;
+      margin-bottom: 12px;
+    }
+    .proxy-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .proxy-title {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 700; color: var(--cyan);
+    }
+    .proxy-title .pt-icon { font-size: 14px; }
+    .proxy-badge-active {
+      font-size: 9px; color: var(--green);
+      background: rgba(0,229,160,0.12); border: 1px solid rgba(0,229,160,0.25);
+      padding: 2px 7px; border-radius: 20px;
+      font-family: 'Space Mono', monospace;
+    }
+    .proxy-badge-off {
+      font-size: 9px; color: var(--muted);
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 20px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .proxy-desc {
+      font-size: 10px; color: var(--muted); margin-bottom: 10px; line-height: 1.5;
+    }
+
+    /* Proxy option rows */
+    .proxy-opts { display: flex; flex-direction: column; gap: 5px; }
+    .proxy-opt {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 11px;
+      background: var(--card2); border: 1.5px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .proxy-opt:hover { border-color: #444; }
+    .proxy-opt.selected {
+      border-color: var(--cyan);
+      background: rgba(0,212,255,0.06);
+    }
+    .proxy-opt.selected .po-radio {
+      background: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.2);
+    }
+    .po-radio {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--muted);
+      flex-shrink: 0; transition: all 0.15s;
+    }
+    .po-info { flex: 1; }
+    .po-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .po-desc { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .po-tag {
+      font-size: 9px; padding: 2px 6px; border-radius: 10px;
+      font-family: 'Space Mono', monospace; flex-shrink: 0;
+    }
+    .tag-cf   { background: rgba(245,130,32,0.15); color: #F58220; border: 1px solid rgba(245,130,32,0.25); }
+    .tag-fast { background: rgba(0,229,160,0.12);  color: var(--green); border: 1px solid rgba(0,229,160,0.2); }
+    .tag-webp { background: rgba(123,111,255,0.12); color: var(--purple); border: 1px solid rgba(123,111,255,0.2); }
+
+    /* Warning text */
+    .proxy-note {
+      font-size: 10px; color: #555; margin-top: 9px; line-height: 1.5;
+      border-top: 1px solid var(--border); padding-top: 9px;
+    }
+    .proxy-note strong { color: #888; }
+
+    /* ── PILLS ── */
+    .tech-section { margin-bottom: 12px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .pill {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 9px;
+      font-size: 10px; font-weight: 600; color: var(--text);
+    }
+    .pill .p-icon { font-size: 11px; }
+    .pill .p-check {
+      width: 13px; height: 13px; border-radius: 50%;
+      background: rgba(0,230,118,0.15);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pill .p-check svg { width: 7px; height: 7px; stroke: var(--green); fill: none; stroke-width: 2.5; }
+
+    /* ── OPEN BUTTONS ── */
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 0; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .btn:hover  { background: #242424; border-color: #555; }
+    .btn:active { transform: scale(0.97); }
+
+    /* ── FOOTER ── */
+    .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 10px; border-top: 1px solid var(--border);
+    }
+    .footer-l { font-size: 10px; color: #3a3a3a; }
+    .footer-l span { color: var(--red); }
+    .footer-r { font-family: 'Space Mono', monospace; font-size: 9px; color: #333; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      <span class="title">YT Background Play</span>
+      <span class="badge">v3.0</span>
+    </div>
+    <div class="tagline">Kiwi Browser • YouTube + Image Proxy CDN</div>
+  </div>
+
+  <div class="body">
+
+    <!-- YT Status -->
+    <div class="status">
+      <div class="dot" id="dot"></div>
+      <div>
+        <div class="s-title" id="stitle">Checking…</div>
+        <div class="s-sub"   id="ssub">—</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         IMAGE PROXY SECTION
+    ════════════════════════════════════════ -->
+    <div class="proxy-section">
+      <div class="proxy-header">
+        <div class="proxy-title">
+          <span class="pt-icon">🖼️</span>
+          Proksi Gambar CDN
+        </div>
+        <span class="proxy-badge-off" id="proxy-status-badge">OFF</span>
+      </div>
+
+      <div class="proxy-desc">
+        Route semua gambar lewat CDN global — gambar manga/doujin lebih cepat, bypass hotlink, auto-cache.
+      </div>
+
+      <div class="proxy-opts" id="proxy-opts">
+
+        <div class="proxy-opt selected" data-proxy="none">
+          <div class="po-radio"></div>
+          <div class="po-info">
+            <div class="po-name">Tidak ada</div>
+            <div class="po-desc">Load gambar langsung (default)</div>
+          </div>
+        </div>
+
+        <div class="proxy-opt" data-proxy="wsrv">
+          <div class="po-radio"></div>
+          <div class="po-info">
+            <div class="po-name">wsrv.nl</div>
+            <div class="po-desc">images.weserv.nl — cache + optimize, 300+ PoP</div>
+          </div>
+          <span class="po-tag tag-cf">Cloudflare</span>
+        </div>
+
+        <div class="proxy-opt" data-proxy="0ms">
+          <div class="po-radio"></div>
+          <div class="po-info">
+            <div class="po-name">0ms.dev</div>
+            <div class="po-desc">Fast image proxy, cocok buat manga reader</div>
+          </div>
+          <span class="po-tag tag-fast">Fast</span>
+        </div>
+
+        <div class="proxy-opt" data-proxy="weserv">
+          <div class="po-radio"></div>
+          <div class="po-info">
+            <div class="po-name">images.weserv.nl</div>
+            <div class="po-desc">Same backend wsrv.nl, domain alternatif</div>
+          </div>
+          <span class="po-tag tag-cf">Cloudflare</span>
+        </div>
+
+        <div class="proxy-opt" data-proxy="imagecdn">
+          <div class="po-radio"></div>
+          <div class="po-info">
+            <div class="po-name">imagecdn.app</div>
+            <div class="po-desc">Auto-convert ke WebP — hemat data 30-50%</div>
+          </div>
+          <span class="po-tag tag-webp">WebP</span>
+        </div>
+
+      </div>
+
+      <div class="proxy-note">
+        <strong>⚠️ Catatan:</strong> Proxy berlaku di semua tab kecuali YouTube & Google. Kalau ada situs yang gambarnya rusak, pilih "Tidak ada" dan reload.
+      </div>
+    </div>
+
+    <!-- YT Tech Pills -->
+    <div class="tech-section">
+      <div class="sec">YT Background — Teknik</div>
+      <div class="pills">
+        <div class="pill"><span class="p-icon">🌐</span> Main World<span class="p-check"><svg viewBox="0 0 10 10"><polyline points="1,5 4,8 9,2"/></svg></span></div>
+        <div class="pill"><span class="p-icon">👁</span> Visibility Spoof<span class="p-check"><svg viewBox="0 0 10 10"><polyline points="1,5 4,8 9,2"/></svg></span></div>
+        <div class="pill"><span class="p-icon">🖱</span> Fake Activity<span class="p-check"><svg viewBox="0 0 10 10"><polyline points="1,5 4,8 9,2"/></svg></span></div>
+        <div class="pill"><span class="p-icon">💬</span> Auto-dismiss<span class="p-check"><svg viewBox="0 0 10 10"><polyline points="1,5 4,8 9,2"/></svg></span></div>
+        <div class="pill"><span class="p-icon">▶</span> Auto-resume<span class="p-check"><svg viewBox="0 0 10 10"><polyline points="1,5 4,8 9,2"/></svg></span></div>
+      </div>
+    </div>
+
+    <!-- Open buttons -->
+    <div class="btns">
+      <a class="btn" href="https://www.youtube.com" target="_blank">▶ YouTube</a>
+      <a class="btn" href="https://music.youtube.com" target="_blank">♪ YT Music</a>
+    </div>
+
+    <div class="footer">
+      <span class="footer-l">Made with <span>♥</span> for Kiwi</span>
+      <span class="footer-r" id="tabinfo"></span>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
