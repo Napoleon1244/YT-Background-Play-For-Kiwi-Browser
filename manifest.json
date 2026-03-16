@@ -13,7 +13,6 @@
 
   "host_permissions": [
     "*://*.youtube.com/*",
-    "*://*.youtube-nocookie.com/*",
     "*://music.youtube.com/*",
     "<all_urls>"
   ],
@@ -26,7 +25,6 @@
     {
       "matches": [
         "*://*.youtube.com/*",
-        "*://*.youtube-nocookie.com/*",
         "*://music.youtube.com/*"
       ],
       "js": ["injector.js"],
@@ -46,7 +44,6 @@
       "resources": ["main-world.js"],
       "matches": [
         "*://*.youtube.com/*",
-        "*://*.youtube-nocookie.com/*",
         "*://music.youtube.com/*"
       ]
     }

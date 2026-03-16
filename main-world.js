@@ -1,18 +1,22 @@
 /**
  * YT Background Play — MAIN WORLD SCRIPT
  *
- * This script executes inside YouTube's own JavaScript context,
- * not in the extension's isolated world. That's the key difference.
- * Here we can truly override YouTube's internal property reads.
+ * Jalan di dalam JavaScript context YouTube sendiri (bukan isolated world).
+ * Di sini kita bisa benar-benar override property reads internal YouTube.
  *
- * Techniques used:
- *  1. Override Page Visibility API properties (document.hidden etc.)
- *  2. Intercept + kill visibilitychange events BEFORE YouTube handlers run
- *  3. Simulate periodic user activity (mouse + keyboard) to beat inactivity timeout
- *  4. Auto-dismiss "Are you still watching?" dialog
- *  5. Auto-resume if YouTube programmatically pauses the video
- *  6. Override document.hasFocus() to always return true
+ * Teknik yang dipakai:
+ *  1. Override Page Visibility API (document.hidden, visibilityState)
+ *  2. Intercept + kill visibilitychange events sebelum YouTube handler-nya
+ *  3. Simulasi periodic user activity (mouse + keyboard)
+ *  4. Auto-dismiss dialog "Are you still watching?"
+ *  5. Auto-resume kalau YouTube pause video secara programatik
+ *  6. Override document.hasFocus() → selalu true
  *  7. Override window.onblur / onfocus traps
+ *
+ * AUDIT FIX:
+ *  - Hapus YT Music setInterval (section 8 asli) — itu dead code, tidak
+ *    melakukan apapun (loop forEach yang hanya punya early-return, tidak ada
+ *    aksi untuk kasus video.paused). Menyia-nyiakan querySelectorAll tiap 5 detik.
  */
 
 (function () {
@@ -23,7 +27,7 @@
 
   // ═══════════════════════════════════════════════════════
   // 1. SPOOF PAGE VISIBILITY API
-  //    Must run BEFORE YouTube scripts parse these properties.
+  //    Harus jalan SEBELUM script YouTube parse property ini.
   // ═══════════════════════════════════════════════════════
   function forceVisible() {
     const props = {
@@ -50,9 +54,6 @@
 
   // ═══════════════════════════════════════════════════════
   // 2. INTERCEPT VISIBILITYCHANGE EVENTS
-  //    Register capture listener FIRST (document_start) so we
-  //    run before YouTube's listeners. stopImmediatePropagation
-  //    prevents any subsequent listener from seeing the event.
   // ═══════════════════════════════════════════════════════
   const BLOCKED_EVENTS = [
     'visibilitychange',
@@ -66,22 +67,19 @@
       e.stopImmediatePropagation();
       e.stopPropagation();
       e.preventDefault();
-    }, true);  // capture phase — fires before all bubble-phase listeners
+    }, true);
   });
 
   // ═══════════════════════════════════════════════════════
   // 3. OVERRIDE hasFocus / blur / focus
   // ═══════════════════════════════════════════════════════
   try {
-    // document.hasFocus() → always true
     document.hasFocus = () => true;
 
-    // Prevent blur events from propagating to YouTube handlers
     window.addEventListener('blur', (e) => {
       e.stopImmediatePropagation();
     }, true);
 
-    // Neutralise onblur property setter
     const winProto = Object.getPrototypeOf(window);
     const existingOnblur = Object.getOwnPropertyDescriptor(winProto, 'onblur');
     if (existingOnblur) {
@@ -94,11 +92,9 @@
   } catch (_) {}
 
   // ═══════════════════════════════════════════════════════
-  // 4. SIMULATE USER ACTIVITY
-  //    YouTube tracks last user interaction time. If it hasn't
-  //    seen activity for ~60s (or longer) it may show the
-  //    "Are you still watching?" dialog. We fake a mousemove
-  //    every 30s and a keydown every 45s.
+  // 4. SIMULASI USER ACTIVITY
+  //    YouTube track waktu interaksi terakhir. Kita fake
+  //    mousemove tiap 30s dan keydown tiap 45s.
   // ═══════════════════════════════════════════════════════
   function fakeMouseMove() {
     try {
@@ -123,12 +119,9 @@
   setInterval(fakeKeyPress, 45_000);
 
   // ═══════════════════════════════════════════════════════
-  // 5. DISMISS "ARE YOU STILL WATCHING?" DIALOG
-  //    YouTube shows this modal and pauses video. We watch for
-  //    it and click the "Yes" button automatically.
+  // 5. DISMISS DIALOG "ARE YOU STILL WATCHING?"
   // ═══════════════════════════════════════════════════════
   function dismissAreYouStillWatching() {
-    // Dialog button selectors (YouTube updates these occasionally)
     const selectors = [
       'button.yt-confirm-dialog-renderer',
       'yt-confirm-dialog-renderer button',
@@ -138,18 +131,13 @@
     ];
     for (const sel of selectors) {
       const btn = document.querySelector(sel);
-      if (btn) {
-        btn.click();
-        return true;
-      }
+      if (btn) { btn.click(); return true; }
     }
     return false;
   }
 
   // ═══════════════════════════════════════════════════════
-  // 6. AUTO-RESUME VIDEO IF PAUSED UNEXPECTEDLY
-  //    YouTube sometimes pauses the <video> element directly.
-  //    We catch this and resume if the pause wasn't user-initiated.
+  // 6. AUTO-RESUME VIDEO KALAU DIPAUSE TIDAK SENGAJA
   // ═══════════════════════════════════════════════════════
   let userPaused = false;
 
@@ -159,14 +147,10 @@
 
     video.addEventListener('pause', () => {
       if (userPaused) return;
-      // Small delay to let YouTube's UI settle before we check
       setTimeout(() => {
-        // If dialog was the reason, dismiss and resume
         const dismissed = dismissAreYouStillWatching();
         if (!userPaused && video.paused) {
           if (dismissed || document.hidden === false) {
-            // hidden is now always false thanks to our override,
-            // so if we're paused and user didn't pause, resume.
             video.play().catch(() => {});
           }
         }
@@ -174,7 +158,6 @@
     }, { passive: true });
   }
 
-  // Intercept click on play/pause buttons to know about user intent
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (!target) return;
@@ -192,7 +175,6 @@
     }
   }, true);
 
-  // Space / k key (YouTube keyboard shortcut)
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.key === 'k' || e.key === 'K') {
       userPaused = true;
@@ -201,7 +183,7 @@
   }, true);
 
   // ═══════════════════════════════════════════════════════
-  // 7. WATCH FOR VIDEO ELEMENTS (CURRENT + FUTURE)
+  // 7. WATCH VIDEO ELEMENTS (CURRENT + FUTURE)
   // ═══════════════════════════════════════════════════════
   document.querySelectorAll('video').forEach(attachVideoGuard);
 
@@ -213,19 +195,6 @@
     childList: true,
     subtree: true,
   });
-
-  // ═══════════════════════════════════════════════════════
-  // 8. YOUTUBE MUSIC SPECIFIC: Keep audio active
-  //    YT Music uses web audio pipeline that can get suspended
-  // ═══════════════════════════════════════════════════════
-  if (location.hostname === 'music.youtube.com') {
-    setInterval(() => {
-      const videos = document.querySelectorAll('video');
-      videos.forEach((v) => {
-        if (!v.paused && !userPaused) return; // playing = fine
-      });
-    }, 5000);
-  }
 
   console.log('[YT Background Play v2] ✅ MAIN WORLD injection active on', location.hostname);
 })();

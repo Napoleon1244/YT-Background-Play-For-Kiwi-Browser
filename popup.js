@@ -64,3 +64,25 @@ opts.forEach(opt => {
   opt.addEventListener('click', () => selectProxy(opt.dataset.proxy));
 });
 
+// ── Sequential Load Toggle ─────────────────────────────────────
+const seqToggle = document.getElementById('seq-toggle');
+const seqDesc   = document.getElementById('seq-desc');
+
+const SEQ_DESC_ON  = 'Aktif — gambar dimuat satu per satu dari atas ke bawah.';
+const SEQ_DESC_OFF = 'Gambar dimuat satu per satu dari atas ke bawah. Ideal untuk manga & artikel — cegah CDN kena 30 request serentak.';
+
+function setSeqUI(on) {
+  seqToggle.classList.toggle('on', on);
+  seqDesc.textContent = on ? SEQ_DESC_ON : SEQ_DESC_OFF;
+}
+
+chrome.storage.local.get(['seqLoad'], ({ seqLoad }) => {
+  setSeqUI(!!seqLoad);
+});
+
+seqToggle.addEventListener('click', () => {
+  const nowOn = !seqToggle.classList.contains('on');
+  setSeqUI(nowOn);
+  chrome.storage.local.set({ seqLoad: nowOn });
+});
+

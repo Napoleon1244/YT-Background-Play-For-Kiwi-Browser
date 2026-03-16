@@ -1,13 +1,17 @@
 /**
  * YT Background Play — INJECTOR (Isolated World)
  *
- * This content script runs in Chrome's "isolated world".
- * Its ONLY job is to inject main-world.js as a real <script> tag
- * so that script executes in the PAGE's JavaScript context (main world).
+ * Runs in Chrome's isolated world. Satu-satunya tugasnya: inject main-world.js
+ * sebagai <script> tag sungguhan supaya jalan di page's JS context (main world).
  *
- * This is the canonical technique used by Mozilla's video-bg-play extension
- * and is required because Object.defineProperty in isolated world
- * does NOT affect the page's own JS execution context.
+ * Kenapa perlu ini: Object.defineProperty di isolated world tidak
+ * mempengaruhi JS execution context milik halaman itu sendiri.
+ *
+ * AUDIT FIX:
+ *  - Hapus if/else duplikat (kedua branch identik, tidak ada bedanya)
+ *  - Hapus dispatch '__ytbg_navigate' — event ini tidak pernah didengarkan
+ *    di main-world.js (dead dispatch). main-world.js sudah punya MutationObserver
+ *    sendiri yang handle video baru saat SPA navigation.
  */
 
 (function () {
@@ -19,36 +23,24 @@
       script.src = chrome.runtime.getURL('main-world.js');
       script.type = 'text/javascript';
 
-      // Inject as early as possible — before any YouTube scripts run
       const target = document.head || document.documentElement;
       target.insertBefore(script, target.firstChild);
 
-      // Clean up the tag after it loads (optional but tidy)
-      script.addEventListener('load', () => {
-        script.remove();
-      });
+      script.addEventListener('load', () => { script.remove(); });
     } catch (e) {
       console.error('[YT Background Play] Injector failed:', e);
     }
   }
 
-  // document_start fires before DOM is ready — inject immediately
-  if (document.readyState === 'loading') {
-    injectMainWorldScript();
-  } else {
-    // Fallback: already past document_start (e.g., dynamic navigation)
-    injectMainWorldScript();
-  }
+  injectMainWorldScript();
 
-  // YouTube is a SPA — handle navigation (e.g. clicking a new video)
-  // The script persists in memory but re-guard on navigation
+  // YouTube SPA — track navigation untuk logging saja
   let lastUrl = location.href;
   new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      // main-world.js checks window.__ytbgplay_injected so it won't re-run
-      // but video elements change — re-trigger from main world via event
-      document.dispatchEvent(new CustomEvent('__ytbg_navigate'));
+      // main-world.js sudah punya videoObserver (MutationObserver) yang
+      // otomatis attach guard ke video baru — tidak perlu dispatch event manual.
     }
   }).observe(document, { subtree: true, childList: true });
 
