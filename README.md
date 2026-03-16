@@ -1,73 +1,123 @@
 # 🎵 YT Background Play
 
-> Play YouTube & YouTube Music in the background on **Kiwi Browser** (Android).  
-> No YouTube Premium needed. No app switching. Just works.
+> Putar YouTube & YouTube Music di background pada **Kiwi Browser** (Android).  
+> Tanpa YouTube Premium. Tanpa ganti aplikasi. Langsung jalan.
 
-![Version](https://img.shields.io/badge/version-3.0-red?style=flat-square)
+![Version](https://img.shields.io/badge/versi-3.0-red?style=flat-square)
 ![Manifest](https://img.shields.io/badge/manifest-v3-blue?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Kiwi%20Browser-teal?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![License](https://img.shields.io/badge/lisensi-MIT-green?style=flat-square)
 
 ---
 
-## 📱 What It Does
+## 📱 Apa yang Bisa Dilakukan
 
-Switch to another app, turn off your screen, or change tabs — YouTube keeps playing. Works on both **youtube.com** and **music.youtube.com**.
+Pindah aplikasi, matiin layar, atau ganti tab — YouTube tetap main. Berlaku untuk **youtube.com** dan **music.youtube.com**.
+
+| Fitur | Keterangan |
+|-------|-----------|
+| 🎵 **Background Play** | YouTube & YT Music tetap putar saat layar mati / ganti app |
+| 🖼️ **Image Proxy CDN** | Route gambar lewat CDN global — manga lebih cepat, hemat data |
 
 ---
 
-## 🧠 How It Actually Works (The Technical Story)
+## 🧠 Cara Kerjanya (Penjelasan Teknis)
 
-Most "background play" extensions fail because they run in Chrome's **isolated world** — a separate JavaScript sandbox where `Object.defineProperty` changes are invisible to YouTube's own code.
+Kebanyakan ekstensi background play gagal karena berjalan di **isolated world** Chrome — sandbox JavaScript terpisah di mana perubahan `Object.defineProperty` tidak terlihat oleh kode YouTube sendiri.
 
-This extension uses a different approach:
+Ekstensi ini pakai pendekatan yang berbeda:
 
-### The Key: Main World Injection
+### Kunci Utama: Main World Injection
 
 ```
 injector.js (isolated world)
     │
-    └── injects <script src="main-world.js"> into the DOM
+    └── inject <script src="main-world.js"> ke dalam DOM
               │
-              └── executes in YouTube's OWN JavaScript context ✅
+              └── berjalan di konteks JavaScript YouTube sendiri ✅
 ```
 
-By injecting a `<script>` tag directly into the page DOM, `main-world.js` runs in the **same JavaScript context as YouTube itself**. Now our overrides actually work.
+Dengan inject `<script>` tag langsung ke DOM halaman, `main-world.js` berjalan di **konteks JS yang sama persis dengan YouTube**. Override kita jadi beneran works.
 
-### Techniques Used
+### Teknik yang Dipakai
 
-| Technique | What It Does |
-|-----------|-------------|
-| **Page Visibility API Spoof** | `document.hidden` always returns `false`, `document.visibilityState` always returns `'visible'` |
-| **visibilitychange Intercept** | `stopImmediatePropagation()` kills the event before YouTube's handlers fire |
-| **Focus API Override** | `document.hasFocus()` always returns `true`, `window.onblur` neutralized |
-| **Fake User Activity** | Dispatches synthetic `mousemove` every 30s + `keydown` every 45s |
-| **Auto-dismiss Dialog** | Automatically clicks away "Are you still watching?" popups |
-| **Auto-resume Guard** | Detects unexpected pauses and resumes playback (respects manual pause) |
+| Teknik | Cara Kerjanya |
+|--------|-------------|
+| **Page Visibility API Spoof** | `document.hidden` selalu `false`, `document.visibilityState` selalu `'visible'` |
+| **visibilitychange Intercept** | `stopImmediatePropagation()` membunuh event sebelum handler YouTube sempat jalan |
+| **Focus API Override** | `document.hasFocus()` selalu `true`, `window.onblur` dineutralisir |
+| **Fake User Activity** | Kirim `mousemove` sintetis tiap 30 detik + `keydown` tiap 45 detik |
+| **Auto-dismiss Dialog** | Otomatis klik tombol di popup "Are you still watching?" |
+| **Auto-resume Guard** | Deteksi pause tidak disengaja dan resume playback (tetap menghormati pause manual) |
+
+### Kenapa Ekstensi Lain Gagal
+
+```js
+// ❌ Ini TIDAK BERPENGARUH ke YouTube (isolated world)
+Object.defineProperty(document, 'hidden', { get: () => false });
+
+// ✅ Ini works — berjalan di konteks JS YouTube sendiri (main world)
+// (hanya mungkin lewat inject <script> tag)
+Object.defineProperty(document, 'hidden', { get: () => false });
+```
+
+Perbedaannya ada di **di mana** kodenya berjalan, bukan apa yang dilakukan kodenya.
 
 ---
 
-## 📦 Installation (Kiwi Browser)
+## 🖼️ Image Proxy CDN
 
-1. Download `yt-background-play.zip`
-2. Open **Kiwi Browser** → address bar → `chrome://extensions`
-3. Enable **Developer Mode** (top right toggle)
+Fitur tambahan untuk ngebaca manga/doujin di browser dengan lebih nyaman.
+
+Semua `<img>` di halaman akan di-route lewat CDN proxy pilihan kamu sebelum di-load browser. Hasilnya:
+
+- **Gambar lebih cepat** — CDN cache di edge server terdekat
+- **Hemat data** — wsrv.nl otomatis resize ke 900px + quality 82% → gambar 3MB jadi ~200KB
+- **Bypass hotlink protection** — beberapa manga site block gambar kalau Referer-nya salah, proxy handle ini
+- **Progressive load** — gambar muncul blur dulu lalu makin tajam (interlace mode)
+
+### Proxy yang Tersedia
+
+| Proxy | Kelebihan |
+|-------|----------|
+| **wsrv.nl** | Cloudflare 300+ PoP, resize + optimize, paling reliable. **Rekomendasi utama.** |
+| **images.weserv.nl** | Backend sama dengan wsrv.nl, domain backup |
+| **0ms.dev** | Fast proxy, simpel, cocok buat manga reader |
+| **imagecdn.app** | Auto-convert ke WebP — hemat data 30–50%, bagus buat koneksi lemot |
+
+### Optimasi Teknis (Low-End Android)
+
+- `Set` untuk domain skiplist → O(1) lookup vs O(n) array
+- URL encode cache `Map` (max 300 entries) → `encodeURIComponent` cuma dipanggil sekali per URL unik
+- `WeakSet` untuk tracking gambar → auto garbage collect, tidak ada memory leak
+- MutationObserver di-debounce 150ms → batch mutations, tidak spike CPU tiap DOM change
+- `requestIdleCallback` untuk initial scan → tidak mengganggu render/scroll
+- Skip gambar < 50px (icon/avatar) → tidak buang waktu untuk elemen UI kecil
+
+---
+
+## 📦 Cara Install (Kiwi Browser)
+
+1. Download file ZIP
+2. Buka **Kiwi Browser** → ketik `chrome://extensions` di address bar
+3. Aktifkan **Developer Mode** (toggle kanan atas)
 4. Tap **`+ (from .zip/.crx/.user.js)`**
-5. Select the downloaded ZIP
-6. Done! Red ▶ icon appears in toolbar
+5. Pilih file ZIP yang sudah didownload
+6. Selesai! Ikon merah ▶ muncul di toolbar
 
 ---
 
-## 📁 File Structure
+## 📁 Struktur File
 
 ```
 yt-background-extension/
-├── manifest.json       # Extension config (MV3)
-├── injector.js         # Isolated world: injects script tag into DOM
-├── main-world.js       # Main world: all the actual bypass logic
-├── background.js       # Service worker: badge management
-├── popup.html          # UI popup
-├── popup.js            # Popup logic
+├── manifest.json     # Konfigurasi ekstensi (MV3)
+├── injector.js       # Isolated world: inject script tag ke DOM
+├── main-world.js     # Main world: semua logika bypass background play
+├── background.js     # Service worker: badge management
+├── proxy.js          # Content script: image proxy optimizer
+├── popup.html        # UI popup
+├── popup.js          # Logika popup
 └── icons/
     ├── icon16.png
     ├── icon48.png
@@ -76,33 +126,18 @@ yt-background-extension/
 
 ---
 
-## 🔬 Why Other Extensions Fail
-
-```js
-// ❌ This does NOTHING to YouTube (isolated world)
-Object.defineProperty(document, 'hidden', { get: () => false });
-
-// ✅ This works — runs in YouTube's own JS context (main world)
-// (only possible via <script> tag injection)
-Object.defineProperty(document, 'hidden', { get: () => false });
-```
-
-The difference is **where** the code runs, not what the code does.
-
----
-
 ## 🙏 Credits
 
-- **Vibe coded by:** [@Napoleon1244](https://github.com/https://github.com/Napoleon1244)
-- **Built with:** [Claude](https://claude.ai) by [Anthropic](https://anthropic.com)
-- **Inspired by:** [mozilla/video-bg-play](https://github.com/mozilla/video-bg-play) — the original Firefox extension that pioneered the main-world injection technique
+- **Vibe coded by:** [@Napoleon1244](https://github.com/Napoleon1244)
+- **Dibangun dengan:** [Claude](https://claude.ai) oleh [Anthropic](https://anthropic.com)
+- **Terinspirasi dari:** [mozilla/video-bg-play](https://github.com/mozilla/video-bg-play) — ekstensi Firefox original yang mempelopori teknik main-world injection
 
 ---
 
 ## ⚠️ Disclaimer
 
-This extension is for personal use. YouTube's Terms of Service may restrict background playback without Premium. Use responsibly.
+Ekstensi ini untuk keperluan pribadi. Terms of Service YouTube mungkin membatasi background playback tanpa Premium. Gunakan dengan bijak.
 
 ---
 
-<p align="center">Made with 🗿 and sleepless nights on Kiwi Browser</p>
+<p align="center">Dibuat dengan 🗿 dan begadang di Kiwi Browser · Android 7.1.1 power user gang</p>
